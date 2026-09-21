@@ -21,7 +21,10 @@ export default defineConfig({
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           {
-            src: 'icons/icon-512.png',
+            // Separate full-bleed source (no pre-rounded corners, artwork
+            // shrunk to the safe zone) so Android's own adaptive-icon mask
+            // doesn't clip into content baked into the regular icon.
+            src: 'icons/icon-512-maskable.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

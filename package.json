@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview",
-    "generate-icons": "node scripts/generate-icons.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
