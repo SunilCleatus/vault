@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { DEFAULT_CATEGORIES, type DefaultCategory } from '../../config/taxonomy';
+import { BROWSABLE_CATEGORIES, type DefaultCategory } from '../../config/taxonomy';
 import { isPdfEmbeddableImage } from '../../lib/imageTypes';
 import { buildFileName } from '../../lib/filename';
 import { uploadFileToDrive } from '../../lib/driveUpload';
@@ -27,7 +27,7 @@ export default function CaptureFlow({
   onAuthExpired,
 }: Props) {
   const [pages, setPages] = useState<Page[]>([]);
-  const [category, setCategory] = useState<DefaultCategory>(DEFAULT_CATEGORIES[0]);
+  const [category, setCategory] = useState<DefaultCategory>(BROWSABLE_CATEGORIES[0]);
   const [title, setTitle] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -202,7 +202,7 @@ export default function CaptureFlow({
             onChange={(e) => setCategory(e.target.value as DefaultCategory)}
             disabled={uploading}
           >
-            {DEFAULT_CATEGORIES.map((c) => (
+            {BROWSABLE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
