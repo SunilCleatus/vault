@@ -186,3 +186,40 @@ export async function shareFile(
     throw new DriveApiError(`Could not share file (${res.status}): ${await res.text()}`);
   }
 }
+
+// Renames, edits metadata, and/or moves a file between category folders in
+// one PATCH — Drive handles a parent change via addParents/removeParents
+// query params on the same request that updates name/description/properties.
+export async function updateFile(
+  accessToken: string,
+  fileId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    properties?: Record<string, string>;
+    moveFromParentId?: string;
+    moveToParentId?: string;
+  }
+): Promise<void> {
+  const params = new URLSearchParams();
+  if (updates.moveToParentId) params.set('addParents', updates.moveToParentId);
+  if (updates.moveFromParentId) params.set('removeParents', updates.moveFromParentId);
+  const query = params.toString() ? `?${params.toString()}` : '';
+
+  const body: Record<string, unknown> = {};
+  if (updates.name !== undefined) body.name = updates.name;
+  if (updates.description !== undefined) body.description = updates.description;
+  if (updates.properties !== undefined) body.properties = updates.properties;
+
+  const res = await fetch(`${DRIVE_FILES_API}/${fileId}${query}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new DriveApiError(`Could not update file (${res.status}): ${await res.text()}`);
+  }
+}

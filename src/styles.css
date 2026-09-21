@@ -604,3 +604,37 @@ h1 {
   color: var(--text);
   font-size: 0.95rem;
 }
+
+.share-form select {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.viewer-title {
+  cursor: pointer;
+}
+
+.viewer-title-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  color: var(--text);
+  font-size: 1rem;
+  margin: 0 0.5rem;
+}
+
+.viewer-meta {
+  cursor: pointer;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 0.75rem;
+}

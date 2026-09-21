@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { deleteFile, downloadFileBlob, shareFile, type DriveFile } from '../../lib/driveClient';
+import { deleteFile, downloadFileBlob, shareFile, updateFile, type DriveFile } from '../../lib/driveClient';
 import { isFavorited, removeFavorite, saveFavorite } from '../../lib/favoritesStore';
 import { usePinKey } from '../lock/LockGate';
 
@@ -8,8 +8,12 @@ type Props = {
   file: DriveFile;
   category: string;
   scopeLabel: string;
+  folderId: string;
+  categoryFolders: Record<string, string>;
   onClose: () => void;
   onDeleted: () => void;
+  onUpdated: () => void;
+  onMoved: (toCategory: string, toFolderId: string) => void;
 };
 
 export default function DocumentViewer({
@@ -17,26 +21,45 @@ export default function DocumentViewer({
   file,
   category,
   scopeLabel,
+  folderId,
+  categoryFolders,
   onClose,
   onDeleted,
+  onUpdated,
+  onMoved,
 }: Props) {
   const { requestKey } = usePinKey();
+  const [fileState, setFileState] = useState(file);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
+
   const [sharing, setSharing] = useState(false);
   const [shareEmail, setShareEmail] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
 
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(file.name);
+  const [savingName, setSavingName] = useState(false);
+
+  const [editingMeta, setEditingMeta] = useState(false);
+  const [expiryInput, setExpiryInput] = useState(file.properties?.expiryDate ?? '');
+  const [notesInput, setNotesInput] = useState(file.description ?? '');
+  const [savingMeta, setSavingMeta] = useState(false);
+
+  const [moving, setMoving] = useState(false);
+  const [moveTarget, setMoveTarget] = useState('');
+  const [savingMove, setSavingMove] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
 
-    downloadFileBlob(accessToken, file.id)
+    downloadFileBlob(accessToken, fileState.id)
       .then((downloaded) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(downloaded);
@@ -47,7 +70,7 @@ export default function DocumentViewer({
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not open document.');
       });
 
-    isFavorited(file.id).then((value) => {
+    isFavorited(fileState.id).then((value) => {
       if (!cancelled) setFavorited(value);
     });
 
@@ -55,14 +78,14 @@ export default function DocumentViewer({
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [accessToken, file.id]);
+  }, [accessToken, fileState.id]);
 
   const handleDelete = async () => {
-    if (!confirm(`Delete "${file.name}"? This can't be undone from here.`)) return;
+    if (!confirm(`Delete "${fileState.name}"? This can't be undone from here.`)) return;
     setDeleting(true);
     try {
-      await deleteFile(accessToken, file.id);
-      await removeFavorite(file.id);
+      await deleteFile(accessToken, fileState.id);
+      await removeFavorite(fileState.id);
       onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete document.');
@@ -72,7 +95,7 @@ export default function DocumentViewer({
 
   const handleToggleFavorite = async () => {
     if (favorited) {
-      await removeFavorite(file.id);
+      await removeFavorite(fileState.id);
       setFavorited(false);
       return;
     }
@@ -84,9 +107,9 @@ export default function DocumentViewer({
       await saveFavorite(
         key,
         {
-          fileId: file.id,
-          name: file.name,
-          mimeType: file.mimeType,
+          fileId: fileState.id,
+          name: fileState.name,
+          mimeType: fileState.mimeType,
           category,
           scopeLabel,
           savedAt: Date.now(),
@@ -105,7 +128,7 @@ export default function DocumentViewer({
     setShareBusy(true);
     setShareMessage(null);
     try {
-      await shareFile(accessToken, file.id, email, 'reader');
+      await shareFile(accessToken, fileState.id, email, 'reader');
       setShareMessage(`Shared with ${email}.`);
       setShareEmail('');
       setSharing(false);
@@ -116,8 +139,59 @@ export default function DocumentViewer({
     }
   };
 
-  const isPdf = file.mimeType === 'application/pdf';
-  const isImage = file.mimeType.startsWith('image/');
+  const handleRename = async () => {
+    const name = nameInput.trim();
+    if (!name || name === fileState.name) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    try {
+      await updateFile(accessToken, fileState.id, { name });
+      setFileState((prev) => ({ ...prev, name }));
+      setEditingName(false);
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename document.');
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleSaveMeta = async () => {
+    setSavingMeta(true);
+    try {
+      const properties: Record<string, string> = expiryInput ? { expiryDate: expiryInput } : {};
+      await updateFile(accessToken, fileState.id, { description: notesInput, properties });
+      setFileState((prev) => ({ ...prev, description: notesInput, properties }));
+      setEditingMeta(false);
+      onUpdated();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update document.');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
+  const handleMove = async () => {
+    const targetFolderId = categoryFolders[moveTarget];
+    if (!targetFolderId) return;
+    setSavingMove(true);
+    try {
+      await updateFile(accessToken, fileState.id, {
+        moveFromParentId: folderId,
+        moveToParentId: targetFolderId,
+      });
+      onMoved(moveTarget, targetFolderId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not move document.');
+      setSavingMove(false);
+    }
+  };
+
+  const isPdf = fileState.mimeType === 'application/pdf';
+  const isImage = fileState.mimeType.startsWith('image/');
+  const moveOptions = Object.keys(categoryFolders).filter((c) => c !== category);
 
   return (
     <div className="viewer">
@@ -125,24 +199,75 @@ export default function DocumentViewer({
         <button className="text-button" onClick={onClose}>
           Close
         </button>
-        <h2 className="viewer-title">{file.name}</h2>
+        {editingName ? (
+          <input
+            className="viewer-title-input"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            autoFocus
+          />
+        ) : (
+          <h2 className="viewer-title" onClick={() => setEditingName(true)}>
+            {fileState.name}
+          </h2>
+        )}
         <span />
       </header>
+
+      {editingName && (
+        <div className="inline-actions">
+          <button className="text-button" onClick={handleRename} disabled={savingName}>
+            {savingName ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            className="text-button"
+            onClick={() => {
+              setNameInput(fileState.name);
+              setEditingName(false);
+            }}
+            disabled={savingName}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div className="viewer-body">
         {!blobUrl && !error && <p className="status-line">Loading…</p>}
         {error && <p className="error">{error}</p>}
-        {blobUrl && isImage && <img className="viewer-image" src={blobUrl} alt={file.name} />}
-        {blobUrl && isPdf && <iframe className="viewer-pdf" src={blobUrl} title={file.name} />}
+        {blobUrl && isImage && <img className="viewer-image" src={blobUrl} alt={fileState.name} />}
+        {blobUrl && isPdf && <iframe className="viewer-pdf" src={blobUrl} title={fileState.name} />}
         {blobUrl && !isImage && !isPdf && (
           <p className="status-line">Preview isn't available for this file type yet.</p>
         )}
       </div>
 
-      {(file.properties?.expiryDate || file.description) && (
-        <div className="viewer-meta">
-          {file.properties?.expiryDate && <p>Expires: {file.properties.expiryDate}</p>}
-          {file.description && <p>{file.description}</p>}
+      {!editingMeta ? (
+        <div className="viewer-meta" onClick={() => setEditingMeta(true)}>
+          {fileState.properties?.expiryDate && <p>Expires: {fileState.properties.expiryDate}</p>}
+          {fileState.description && <p>{fileState.description}</p>}
+          {!fileState.properties?.expiryDate && !fileState.description && (
+            <p className="status-line">Tap to add an expiry date or notes</p>
+          )}
+        </div>
+      ) : (
+        <div className="metadata-form">
+          <label>
+            Expiry / renewal date
+            <input type="date" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} />
+          </label>
+          <label>
+            Notes
+            <textarea rows={2} value={notesInput} onChange={(e) => setNotesInput(e.target.value)} />
+          </label>
+          <div className="inline-actions">
+            <button className="text-button" onClick={handleSaveMeta} disabled={savingMeta}>
+              {savingMeta ? 'Saving…' : 'Save'}
+            </button>
+            <button className="text-button" onClick={() => setEditingMeta(false)} disabled={savingMeta}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
@@ -166,9 +291,28 @@ export default function DocumentViewer({
         </div>
       )}
 
+      {moving && (
+        <div className="share-form">
+          <select value={moveTarget} onChange={(e) => setMoveTarget(e.target.value)}>
+            <option value="">Move to…</option>
+            {moveOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <button className="text-button" onClick={handleMove} disabled={savingMove || !moveTarget}>
+            {savingMove ? 'Moving…' : 'Move'}
+          </button>
+          <button className="text-button" onClick={() => setMoving(false)} disabled={savingMove}>
+            Cancel
+          </button>
+        </div>
+      )}
+
       <div className="viewer-actions">
         {blobUrl && (
-          <a className="secondary-button" href={blobUrl} download={file.name}>
+          <a className="secondary-button" href={blobUrl} download={fileState.name}>
             Download
           </a>
         )}
@@ -182,6 +326,11 @@ export default function DocumentViewer({
         <button className="secondary-button" onClick={() => setSharing(true)} disabled={sharing}>
           Share
         </button>
+        {moveOptions.length > 0 && (
+          <button className="secondary-button" onClick={() => setMoving(true)} disabled={moving}>
+            Move
+          </button>
+        )}
         <button className="secondary-button danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? 'Deleting…' : 'Delete'}
         </button>

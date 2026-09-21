@@ -99,12 +99,29 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
         file={selectedFile}
         category={selectedCategory.name}
         scopeLabel={selectedCategory.scopeLabel}
+        folderId={selectedCategory.folderId}
+        // Move only offers other categories within the scope currently being
+        // browsed — a search result can belong to any family member's scope,
+        // and we don't have that scope's folder map loaded, so Move is
+        // simply unavailable there rather than risking a wrong target.
+        categoryFolders={viewerOrigin === 'folder' ? browsableCategories : {}}
         onClose={() => {
           setSelectedFile(null);
           setView(viewerOrigin);
         }}
         onDeleted={() => {
           void invalidateCachedListing(selectedCategory.folderId);
+          setSelectedFile(null);
+          setFolderRefresh((n) => n + 1);
+          setView(viewerOrigin);
+        }}
+        onUpdated={() => {
+          void invalidateCachedListing(selectedCategory.folderId);
+          setFolderRefresh((n) => n + 1);
+        }}
+        onMoved={(toCategory, toFolderId) => {
+          void invalidateCachedListing(selectedCategory.folderId);
+          void invalidateCachedListing(toFolderId);
           setSelectedFile(null);
           setFolderRefresh((n) => n + 1);
           setView(viewerOrigin);
