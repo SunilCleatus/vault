@@ -19,13 +19,14 @@ type Props = {
   accessToken: string;
   structure: VaultStructure;
   onAuthExpired: () => void;
+  onSignOut: () => void;
 };
 
 type RecentUpload = { category: string; fileName: string };
 type View = 'browse' | 'folder' | 'viewer' | 'capture' | 'search' | 'favorites';
 type SelectedCategory = { name: string; folderId: string; scopeLabel: string };
 
-export default function VaultHome({ accessToken, structure, onAuthExpired }: Props) {
+export default function VaultHome({ accessToken, structure, onAuthExpired, onSignOut }: Props) {
   const [scope, setScope] = useState<FamilyScope>({ kind: 'me' });
   const [activeStructure, setActiveStructure] = useState<VaultStructure>(structure);
   const [resolvingScope, setResolvingScope] = useState(false);
@@ -158,6 +159,9 @@ export default function VaultHome({ accessToken, structure, onAuthExpired }: Pro
         <button className="text-button" onClick={() => setView('favorites')}>
           ⭐ Offline Favorites
         </button>
+        <button className="text-button" onClick={onSignOut}>
+          Sign Out
+        </button>
       </div>
 
       <FamilySwitcher
@@ -167,6 +171,11 @@ export default function VaultHome({ accessToken, structure, onAuthExpired }: Pro
         onScopeChange={setScope}
         refreshToken={switcherRefresh}
       />
+      <p className="family-hint">
+        For dependents without their own Google account. Family members who have one should sign
+        out and sign in as themselves for a private Vault — you can Share individual documents
+        with them instead.
+      </p>
 
       {resolvingScope && <p className="status-line">Setting up their folders…</p>}
 

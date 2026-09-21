@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { deleteFile, downloadFileBlob, type DriveFile } from '../../lib/driveClient';
+import { deleteFile, downloadFileBlob, shareFile, type DriveFile } from '../../lib/driveClient';
 import { isFavorited, removeFavorite, saveFavorite } from '../../lib/favoritesStore';
 import { usePinKey } from '../lock/LockGate';
 
@@ -27,6 +27,10 @@ export default function DocumentViewer({
   const [deleting, setDeleting] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -95,6 +99,23 @@ export default function DocumentViewer({
     }
   };
 
+  const handleShare = async () => {
+    const email = shareEmail.trim();
+    if (!email) return;
+    setShareBusy(true);
+    setShareMessage(null);
+    try {
+      await shareFile(accessToken, file.id, email, 'reader');
+      setShareMessage(`Shared with ${email}.`);
+      setShareEmail('');
+      setSharing(false);
+    } catch (err) {
+      setShareMessage(err instanceof Error ? err.message : 'Could not share document.');
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
   const isPdf = file.mimeType === 'application/pdf';
   const isImage = file.mimeType.startsWith('image/');
 
@@ -125,6 +146,26 @@ export default function DocumentViewer({
         </div>
       )}
 
+      {shareMessage && <p className="status-line">{shareMessage}</p>}
+
+      {sharing && (
+        <div className="share-form">
+          <input
+            type="email"
+            placeholder="family member's email"
+            value={shareEmail}
+            onChange={(e) => setShareEmail(e.target.value)}
+            autoFocus
+          />
+          <button className="text-button" onClick={handleShare} disabled={shareBusy}>
+            {shareBusy ? 'Sharing…' : 'Share'}
+          </button>
+          <button className="text-button" onClick={() => setSharing(false)} disabled={shareBusy}>
+            Cancel
+          </button>
+        </div>
+      )}
+
       <div className="viewer-actions">
         {blobUrl && (
           <a className="secondary-button" href={blobUrl} download={file.name}>
@@ -137,6 +178,9 @@ export default function DocumentViewer({
           disabled={!blob || favoriteBusy}
         >
           {favorited ? '★ Saved Offline' : '☆ Save for Offline'}
+        </button>
+        <button className="secondary-button" onClick={() => setSharing(true)} disabled={sharing}>
+          Share
         </button>
         <button className="secondary-button danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? 'Deleting…' : 'Delete'}

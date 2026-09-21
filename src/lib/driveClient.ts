@@ -161,3 +161,28 @@ export async function deleteFile(accessToken: string, fileId: string): Promise<v
     throw new DriveApiError(`Could not delete file (${res.status}): ${await res.text()}`);
   }
 }
+
+// Grants another person's Google account access to this one file via
+// Drive's own sharing — the drive.file scope covers managing permissions on
+// files the app created, so no extra OAuth scope is needed. Used for
+// explicitly sharing a single document across two separate family-member
+// accounts (each with their own private Vault), as opposed to the
+// owner-manages-everyone Family/<name> folders.
+export async function shareFile(
+  accessToken: string,
+  fileId: string,
+  email: string,
+  role: 'reader' | 'writer' = 'reader'
+): Promise<void> {
+  const res = await fetch(`${DRIVE_FILES_API}/${fileId}/permissions?sendNotificationEmail=true`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role, type: 'user', emailAddress: email }),
+  });
+  if (!res.ok) {
+    throw new DriveApiError(`Could not share file (${res.status}): ${await res.text()}`);
+  }
+}

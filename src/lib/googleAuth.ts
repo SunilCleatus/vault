@@ -3,7 +3,10 @@
 // Drive access.
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
-export function requestGoogleAccessToken(clientId: string): Promise<string> {
+export function requestGoogleAccessToken(
+  clientId: string,
+  options: { selectAccount?: boolean } = {}
+): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!window.google?.accounts?.oauth2) {
       reject(
@@ -26,6 +29,10 @@ export function requestGoogleAccessToken(clientId: string): Promise<string> {
       },
     });
 
-    tokenClient.requestAccessToken();
+    // Forces Google's account chooser instead of silently reusing whatever
+    // account is cached in the browser — lets a different family member
+    // pick their own account on a shared device instead of landing back in
+    // whoever last signed in here.
+    tokenClient.requestAccessToken(options.selectAccount ? { prompt: 'select_account' } : undefined);
   });
 }
