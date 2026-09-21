@@ -127,6 +127,7 @@ export type DriveFile = {
   thumbnailLink?: string;
   description?: string;
   properties?: Record<string, string>;
+  parents?: string[];
 };
 
 export async function listFiles(accessToken: string, folderId: string): Promise<DriveFile[]> {

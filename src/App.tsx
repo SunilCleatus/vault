@@ -3,6 +3,7 @@ import { requestGoogleAccessToken } from './lib/googleAuth';
 import { ensureVaultStructure, type VaultStructure } from './lib/driveClient';
 import { DEFAULT_CATEGORIES } from './config/taxonomy';
 import VaultHome from './features/vault/VaultHome';
+import LockGate from './features/lock/LockGate';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
@@ -45,7 +46,9 @@ export default function App() {
   if (status === 'ready' && structure && accessToken) {
     return (
       <main className="screen">
-        <VaultHome accessToken={accessToken} structure={structure} onAuthExpired={handleSignIn} />
+        <LockGate>
+          <VaultHome accessToken={accessToken} structure={structure} onAuthExpired={handleSignIn} />
+        </LockGate>
       </main>
     );
   }

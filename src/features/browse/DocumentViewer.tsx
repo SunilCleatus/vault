@@ -1,31 +1,51 @@
 import { useEffect, useState } from 'react';
 import { deleteFile, downloadFileBlob, type DriveFile } from '../../lib/driveClient';
+import { isFavorited, removeFavorite, saveFavorite } from '../../lib/favoritesStore';
+import { usePinKey } from '../lock/LockGate';
 
 type Props = {
   accessToken: string;
   file: DriveFile;
+  category: string;
+  scopeLabel: string;
   onClose: () => void;
   onDeleted: () => void;
 };
 
-export default function DocumentViewer({ accessToken, file, onClose, onDeleted }: Props) {
+export default function DocumentViewer({
+  accessToken,
+  file,
+  category,
+  scopeLabel,
+  onClose,
+  onDeleted,
+}: Props) {
+  const { requestKey } = usePinKey();
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let objectUrl: string | null = null;
 
     downloadFileBlob(accessToken, file.id)
-      .then((blob) => {
+      .then((downloaded) => {
         if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
+        objectUrl = URL.createObjectURL(downloaded);
+        setBlob(downloaded);
         setBlobUrl(objectUrl);
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not open document.');
       });
+
+    isFavorited(file.id).then((value) => {
+      if (!cancelled) setFavorited(value);
+    });
 
     return () => {
       cancelled = true;
@@ -38,10 +58,40 @@ export default function DocumentViewer({ accessToken, file, onClose, onDeleted }
     setDeleting(true);
     try {
       await deleteFile(accessToken, file.id);
+      await removeFavorite(file.id);
       onDeleted();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete document.');
       setDeleting(false);
+    }
+  };
+
+  const handleToggleFavorite = async () => {
+    if (favorited) {
+      await removeFavorite(file.id);
+      setFavorited(false);
+      return;
+    }
+    if (!blob) return;
+    setFavoriteBusy(true);
+    try {
+      const key = await requestKey();
+      if (!key) return;
+      await saveFavorite(
+        key,
+        {
+          fileId: file.id,
+          name: file.name,
+          mimeType: file.mimeType,
+          category,
+          scopeLabel,
+          savedAt: Date.now(),
+        },
+        blob
+      );
+      setFavorited(true);
+    } finally {
+      setFavoriteBusy(false);
     }
   };
 
@@ -81,6 +131,13 @@ export default function DocumentViewer({ accessToken, file, onClose, onDeleted }
             Download
           </a>
         )}
+        <button
+          className="secondary-button"
+          onClick={handleToggleFavorite}
+          disabled={!blob || favoriteBusy}
+        >
+          {favorited ? '★ Saved Offline' : '☆ Save for Offline'}
+        </button>
         <button className="secondary-button danger" onClick={handleDelete} disabled={deleting}>
           {deleting ? 'Deleting…' : 'Delete'}
         </button>
