@@ -31,8 +31,8 @@ Google Drive already gives reliable, free/cheap cloud storage, but has no purpos
 
 ## 4. Target Users
 
-- Primary: Individuals/heads of household in India (or similar geographies with Aadhaar/PAN-style national IDs) who manage documents for themselves and their family.
-- Secondary: Family members with shared or delegated access (spouse, adult children) — post-MVP.
+- Primary: A single account owner (head of household) in India (or similar geographies with Aadhaar/PAN-style national IDs) who manages documents for themselves and their entire family from their own Google account and Drive.
+- Secondary (post-MVP): Family members with their own login and delegated/shared access (spouse, adult children) — not in MVP scope; see section 9.
 
 ## 5. Core Use Cases
 
@@ -125,7 +125,7 @@ Google Drive already gives reliable, free/cheap cloud storage, but has no purpos
 | `drive.file` scope means the app can only see files it created — what if a user already has documents in Drive they want to import? | Need a one-time "import & adopt" flow using Drive Picker API, which grants file-level access to user-selected existing files without full-Drive scope. |
 | What happens if the user revokes Drive access or deletes the Vault folder from Drive directly? | App needs a reconciliation/recreate-structure flow and should not silently fail. |
 | Aadhaar/PAN are extremely sensitive — any regulatory considerations (e.g., India's DPDP Act) for an app handling these? | Needs a privacy policy review; since we don't store data on our own servers, our compliance burden is lighter, but should still be explicit in-app and in store listing. |
-| Family member documents — do family members get their own login, or is this single-owner-manages-all for MVP? | MVP assumption: single account manages all family members' docs (like a folder, not multi-user accounts). Multi-user shared access is a v2 consideration. |
+| Family member documents — do family members get their own login, or is this single-owner-manages-all for MVP? | **Confirmed: Option A, single owner.** One Google account (the owner's) holds one Drive with all family members' documents as subfolders under `Family/<Person Name>/`. Family members do not sign in or need their own Google account for MVP. Multi-user, each-person-owns-their-own-Drive access is a possible v2 direction, not MVP. |
 | Offline favorites encryption — what's the key management approach (device keystore vs. passphrase)? | Web Crypto API-generated key, wrapped/protected via WebAuthn platform authenticator (Face ID/Touch ID/fingerprint) where available; falls back to a PIN-derived key otherwise. |
 | iOS Safari can evict IndexedDB/local storage after long periods of inactivity | Acceptable since Drive is the source of truth — local cache/favorites just get re-synced from Drive on next open; user is never silently locked out of their actual documents. |
 | Web push notifications for expiry reminders require iOS 16.4+ and the user must have added the app to Home Screen (not just visited the site) | Onboarding must explicitly prompt "Add to Home Screen" and explain why (offline access + reminders), since a plain browser tab won't get reminders on iOS. |
@@ -152,4 +152,3 @@ Google Drive already gives reliable, free/cheap cloud storage, but has no purpos
 
 Before implementation starts, please confirm:
 - Frontend framework for the PWA — recommend **React + Vite** (fast dev loop, huge ecosystem for PWA tooling like `vite-plugin-pwa`) unless you have a preference (e.g., Svelte, plain web components).
-- Should family member documents be filterable/shareable with those family members directly in v1, or is "single owner manages all" acceptable for MVP (as assumed above)?
