@@ -6,7 +6,8 @@ import {
 } from '../../lib/driveClient';
 import { invalidateCachedListing } from '../../lib/listingCache';
 import { BROWSABLE_CATEGORIES } from '../../config/taxonomy';
-import type { FolderLabel } from '../../lib/folderIndex';
+import { buildFolderIndex, type FolderLabel } from '../../lib/folderIndex';
+import { findExpiringSoon, formatDaysUntilExpiry, type ExpiringFile } from '../../lib/expiryCheck';
 import CaptureFlow from '../capture/CaptureFlow';
 import CategoryGrid from '../browse/CategoryGrid';
 import FolderView from '../browse/FolderView';
@@ -25,6 +26,7 @@ type Props = {
 type RecentUpload = { category: string; fileName: string };
 type View = 'browse' | 'folder' | 'viewer' | 'capture' | 'search' | 'favorites';
 type SelectedCategory = { name: string; folderId: string; scopeLabel: string };
+type ViewerOrigin = 'folder' | 'search' | 'browse';
 
 export default function VaultHome({ accessToken, structure, onAuthExpired, onSignOut }: Props) {
   const [scope, setScope] = useState<FamilyScope>({ kind: 'me' });
@@ -34,10 +36,12 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
   const [folderRefresh, setFolderRefresh] = useState(0);
 
   const [view, setView] = useState<View>('browse');
-  const [viewerOrigin, setViewerOrigin] = useState<'folder' | 'search'>('folder');
+  const [viewerOrigin, setViewerOrigin] = useState<ViewerOrigin>('folder');
   const [selectedCategory, setSelectedCategory] = useState<SelectedCategory | null>(null);
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
+  const [expiringSoon, setExpiringSoon] = useState<ExpiringFile[]>([]);
+  const [folderIndex, setFolderIndex] = useState<Map<string, FolderLabel> | null>(null);
 
   const familyRootId = structure.categories['Family'];
   const currentScopeLabel = scope.kind === 'me' ? 'Me' : scope.name;
@@ -69,7 +73,27 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
     };
   }, [scope, accessToken, familyRootId, structure]);
 
-  const openViewer = (file: DriveFile, category: SelectedCategory, origin: 'folder' | 'search') => {
+  // Checked once per sign-in, across every category and family member (not
+  // just the currently browsed scope) — the whole point is surfacing things
+  // you'd otherwise have to remember to go looking for.
+  useEffect(() => {
+    let cancelled = false;
+    findExpiringSoon(accessToken)
+      .then((files) => {
+        if (!cancelled) setExpiringSoon(files);
+      })
+      .catch(() => {
+        // best-effort — an expiry-check failure shouldn't block the rest of the app
+      });
+    buildFolderIndex(accessToken, structure).then((index) => {
+      if (!cancelled) setFolderIndex(index);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, structure]);
+
+  const openViewer = (file: DriveFile, category: SelectedCategory, origin: ViewerOrigin) => {
     setSelectedFile(file);
     setSelectedCategory(category);
     setViewerOrigin(origin);
@@ -180,6 +204,45 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
           Sign Out
         </button>
       </div>
+
+      {expiringSoon.length > 0 && (
+        <div className="expiring-soon">
+          <h3>⚠️ Expiring Soon</h3>
+          <ul className="file-list">
+            {expiringSoon.map((file) => {
+              const label = (file.parents?.[0] && folderIndex?.get(file.parents[0])) || {
+                scopeLabel: '',
+                category: '',
+              };
+              return (
+                <li key={file.id}>
+                  <button
+                    className="file-row"
+                    onClick={() =>
+                      openViewer(
+                        file,
+                        { name: label.category, folderId: file.parents?.[0] ?? '', scopeLabel: label.scopeLabel },
+                        'browse'
+                      )
+                    }
+                  >
+                    <span className="file-thumb file-thumb-fallback">
+                      {file.mimeType === 'application/pdf' ? 'PDF' : 'DOC'}
+                    </span>
+                    <span className="file-info">
+                      <span className="file-name">{file.name}</span>
+                      <span className="file-expiry">
+                        {formatDaysUntilExpiry(file.daysUntilExpiry)}
+                        {label.scopeLabel && ` · ${label.scopeLabel} → ${label.category}`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <FamilySwitcher
         accessToken={accessToken}
