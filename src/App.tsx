@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { requestGoogleAccessToken } from './lib/googleAuth';
 import { ensureVaultStructure, type VaultStructure } from './lib/driveClient';
 import { DEFAULT_CATEGORIES } from './config/taxonomy';
+import VaultHome from './features/vault/VaultHome';
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 
@@ -10,6 +11,7 @@ type Status = 'signed-out' | 'signing-in' | 'scaffolding' | 'ready' | 'error';
 export default function App() {
   const [status, setStatus] = useState<Status>('signed-out');
   const [error, setError] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [structure, setStructure] = useState<VaultStructure | null>(null);
   const [readyCategories, setReadyCategories] = useState<string[]>([]);
 
@@ -25,10 +27,11 @@ export default function App() {
     setError(null);
     setStatus('signing-in');
     try {
-      const accessToken = await requestGoogleAccessToken(CLIENT_ID);
+      const token = await requestGoogleAccessToken(CLIENT_ID);
+      setAccessToken(token);
       setStatus('scaffolding');
       setReadyCategories([]);
-      const result = await ensureVaultStructure(accessToken, (category) => {
+      const result = await ensureVaultStructure(token, (category) => {
         setReadyCategories((prev) => [...prev, category]);
       });
       setStructure(result);
@@ -39,8 +42,16 @@ export default function App() {
     }
   }, []);
 
+  if (status === 'ready' && structure && accessToken) {
+    return (
+      <main className="screen">
+        <VaultHome accessToken={accessToken} structure={structure} onAuthExpired={handleSignIn} />
+      </main>
+    );
+  }
+
   const showSignIn = status === 'signed-out' || status === 'error';
-  const showProgress = status === 'scaffolding' || status === 'ready';
+  const showProgress = status === 'scaffolding';
 
   return (
     <main className="screen">
@@ -70,13 +81,6 @@ export default function App() {
             );
           })}
         </ul>
-      )}
-
-      {status === 'ready' && structure && (
-        <p className="success">
-          Your Vault folder is set up in Google Drive with{' '}
-          {Object.keys(structure.categories).length} categories, ready to file documents into.
-        </p>
       )}
     </main>
   );
