@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { requestGoogleAccessToken } from './lib/googleAuth';
 import { ensureVaultStructure, type VaultStructure } from './lib/driveClient';
 import { clearAllLocalData } from './lib/db';
+import { saveSession, loadSession, clearSession } from './lib/session';
 import { DEFAULT_CATEGORIES } from './config/taxonomy';
 import VaultHome from './features/vault/VaultHome';
 import LockGate from './features/lock/LockGate';
@@ -17,6 +18,18 @@ export default function App() {
   const [structure, setStructure] = useState<VaultStructure | null>(null);
   const [readyCategories, setReadyCategories] = useState<string[]>([]);
 
+  // Restores a still-valid session instantly (no network calls, no
+  // re-authenticating) so reopening the app within the same browser session
+  // doesn't require signing in again every time.
+  useEffect(() => {
+    const session = loadSession();
+    if (session) {
+      setAccessToken(session.accessToken);
+      setStructure(session.structure);
+      setStatus('ready');
+    }
+  }, []);
+
   const signIn = useCallback(async (selectAccount: boolean) => {
     if (!CLIENT_ID) {
       setError(
@@ -29,7 +42,9 @@ export default function App() {
     setError(null);
     setStatus('signing-in');
     try {
-      const token = await requestGoogleAccessToken(CLIENT_ID, { selectAccount });
+      const { accessToken: token, expiresAt } = await requestGoogleAccessToken(CLIENT_ID, {
+        selectAccount,
+      });
       setAccessToken(token);
       setStatus('scaffolding');
       setReadyCategories([]);
@@ -38,6 +53,7 @@ export default function App() {
       });
       setStructure(result);
       setStatus('ready');
+      saveSession({ accessToken: token, expiresAt, structure: result });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.');
       setStatus('error');
@@ -57,6 +73,7 @@ export default function App() {
     if (accessToken && window.google?.accounts?.oauth2) {
       window.google.accounts.oauth2.revoke(accessToken, () => {});
     }
+    clearSession();
     await clearAllLocalData();
     setAccessToken(null);
     setStructure(null);

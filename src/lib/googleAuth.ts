@@ -3,10 +3,17 @@
 // Drive access.
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 
+// Treat the token as expiring a bit before Google actually does, so a
+// borderline-stale restored session gets refreshed proactively rather than
+// failing a Drive call mid-use.
+const EXPIRY_SAFETY_BUFFER_SECONDS = 300;
+
+export type GoogleAuthResult = { accessToken: string; expiresAt: number };
+
 export function requestGoogleAccessToken(
   clientId: string,
   options: { selectAccount?: boolean } = {}
-): Promise<string> {
+): Promise<GoogleAuthResult> {
   return new Promise((resolve, reject) => {
     if (!window.google?.accounts?.oauth2) {
       reject(
@@ -25,7 +32,14 @@ export function requestGoogleAccessToken(
           reject(new Error(response.error ?? 'Google sign-in failed.'));
           return;
         }
-        resolve(response.access_token);
+        const lifetimeSeconds = Math.max(
+          (response.expires_in ?? 3600) - EXPIRY_SAFETY_BUFFER_SECONDS,
+          60
+        );
+        resolve({
+          accessToken: response.access_token,
+          expiresAt: Date.now() + lifetimeSeconds * 1000,
+        });
       },
     });
 
