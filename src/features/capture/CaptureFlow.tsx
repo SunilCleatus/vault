@@ -221,10 +221,11 @@ export default function CaptureFlow({
           />
         </label>
 
-        <label>
-          Expiry / renewal date (optional)
+        <div className="form-field">
+          <label htmlFor="capture-expiry-date">Expiry / renewal date (optional)</label>
           <div className="date-field">
             <input
+              id="capture-expiry-date"
               type="date"
               value={expiryDate}
               onChange={(e) => setExpiryDate(e.target.value)}
@@ -241,7 +242,7 @@ export default function CaptureFlow({
               </button>
             )}
           </div>
-        </label>
+        </div>
 
         <label>
           Notes (optional)

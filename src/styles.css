@@ -254,6 +254,22 @@ h1 {
   color: var(--text-muted);
 }
 
+/* Used instead of a wrapping <label> wherever a field needs an extra
+   interactive control (like the expiry date's Clear button) alongside the
+   input — nesting a button inside a <label> makes browsers forward clicks
+   on it to the label's associated input too, reopening the picker instead
+   of clearing it. */
+.metadata-form .form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.metadata-form .form-field label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .metadata-form input,
 .metadata-form select,
 .metadata-form textarea {

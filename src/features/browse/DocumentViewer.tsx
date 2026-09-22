@@ -252,17 +252,22 @@ export default function DocumentViewer({
         </div>
       ) : (
         <div className="metadata-form">
-          <label>
-            Expiry / renewal date
+          <div className="form-field">
+            <label htmlFor="viewer-expiry-date">Expiry / renewal date</label>
             <div className="date-field">
-              <input type="date" value={expiryInput} onChange={(e) => setExpiryInput(e.target.value)} />
+              <input
+                id="viewer-expiry-date"
+                type="date"
+                value={expiryInput}
+                onChange={(e) => setExpiryInput(e.target.value)}
+              />
               {expiryInput && (
                 <button type="button" className="text-button" onClick={() => setExpiryInput('')}>
                   Clear
                 </button>
               )}
             </div>
-          </label>
+          </div>
           <label>
             Notes
             <textarea rows={2} value={notesInput} onChange={(e) => setNotesInput(e.target.value)} />
