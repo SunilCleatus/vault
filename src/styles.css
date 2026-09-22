@@ -649,3 +649,13 @@ h1 {
   font-size: 0.9rem;
   color: #ffb74d;
 }
+
+.date-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.date-field input {
+  flex: 1;
+}

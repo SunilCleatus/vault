@@ -223,12 +223,24 @@ export default function CaptureFlow({
 
         <label>
           Expiry / renewal date (optional)
-          <input
-            type="date"
-            value={expiryDate}
-            onChange={(e) => setExpiryDate(e.target.value)}
-            disabled={uploading}
-          />
+          <div className="date-field">
+            <input
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              disabled={uploading}
+            />
+            {expiryDate && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setExpiryDate('')}
+                disabled={uploading}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </label>
 
         <label>
