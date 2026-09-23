@@ -22,7 +22,15 @@ body {
 .screen {
   max-width: 480px;
   margin: 0 auto;
-  padding: 2.5rem 1.5rem 3rem;
+  /* max() with env(safe-area-inset-*) keeps the header/toolbar row clear of
+     the notch/Dynamic Island/status bar when installed as a standalone PWA
+     (no browser chrome reserving that space itself); falls back to the
+     plain rem value on devices with no safe area. Requires
+     viewport-fit=cover in index.html's viewport meta tag to take effect. */
+  padding-top: max(2.5rem, env(safe-area-inset-top));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+  padding-bottom: max(3rem, env(safe-area-inset-bottom));
+  padding-left: max(1.5rem, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -560,7 +568,8 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.5rem, env(safe-area-inset-right))
+    max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
   z-index: 10;
 }
 
