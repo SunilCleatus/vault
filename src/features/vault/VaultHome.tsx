@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ensureFamilyMemberStructure,
   ensureFolder,
@@ -88,18 +88,24 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
     };
   }, [accessToken, activeStructure]);
 
+  // Re-run after any delete/metadata edit that could change what's
+  // expiring — otherwise a cleared or deleted document lingers in this list
+  // until the whole app reloads, since it's plain in-memory React state,
+  // not re-derived from Drive on every render.
+  const refreshExpiringSoon = useCallback(() => {
+    findExpiringSoon(accessToken)
+      .then(setExpiringSoon)
+      .catch(() => {
+        // best-effort — an expiry-check failure shouldn't block the rest of the app
+      });
+  }, [accessToken]);
+
   // Checked once per sign-in, across every category and family member (not
   // just the currently browsed scope) — the whole point is surfacing things
   // you'd otherwise have to remember to go looking for.
   useEffect(() => {
+    refreshExpiringSoon();
     let cancelled = false;
-    findExpiringSoon(accessToken)
-      .then((files) => {
-        if (!cancelled) setExpiringSoon(files);
-      })
-      .catch(() => {
-        // best-effort — an expiry-check failure shouldn't block the rest of the app
-      });
     buildFolderIndex(accessToken, structure).then((index) => {
       if (!cancelled) setFolderIndex(index);
     });
@@ -164,12 +170,14 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
         }}
         onDeleted={() => {
           void invalidateCachedListing(selectedCategory.folderId);
+          refreshExpiringSoon();
           setSelectedFile(null);
           setFolderRefresh((n) => n + 1);
           setView(viewerOrigin);
         }}
         onUpdated={() => {
           void invalidateCachedListing(selectedCategory.folderId);
+          refreshExpiringSoon();
           setFolderRefresh((n) => n + 1);
         }}
         onMoved={(toCategory, toFolderId) => {
