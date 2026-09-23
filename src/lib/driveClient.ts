@@ -207,13 +207,19 @@ export async function shareFile(
 // Renames, edits metadata, and/or moves a file between category folders in
 // one PATCH — Drive handles a parent change via addParents/removeParents
 // query params on the same request that updates name/description/properties.
+//
+// Drive's `properties` map uses per-key PATCH semantics, not full
+// replacement: passing {} leaves every existing property untouched, and the
+// only way to actually delete a key is to set its value to `null`
+// explicitly. Callers clearing a property (e.g. expiryDate) must pass
+// { expiryDate: null }, not just omit the key.
 export async function updateFile(
   accessToken: string,
   fileId: string,
   updates: {
     name?: string;
     description?: string;
-    properties?: Record<string, string>;
+    properties?: Record<string, string | null>;
     moveFromParentId?: string;
     moveToParentId?: string;
   }

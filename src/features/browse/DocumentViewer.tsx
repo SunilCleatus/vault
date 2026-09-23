@@ -182,9 +182,14 @@ export default function DocumentViewer({
   const handleSaveMeta = async () => {
     setSavingMeta(true);
     try {
-      const properties: Record<string, string> = expiryInput ? { expiryDate: expiryInput } : {};
-      await updateFile(accessToken, fileState.id, { description: notesInput, properties });
-      setFileState((prev) => ({ ...prev, description: notesInput, properties }));
+      // null explicitly deletes the key server-side; omitting it (or
+      // sending {}) would leave a previously-set expiry date untouched.
+      await updateFile(accessToken, fileState.id, {
+        description: notesInput,
+        properties: { expiryDate: expiryInput || null },
+      });
+      const localProperties: Record<string, string> = expiryInput ? { expiryDate: expiryInput } : {};
+      setFileState((prev) => ({ ...prev, description: notesInput, properties: localProperties }));
       setEditingMeta(false);
       onUpdated();
     } catch (err) {
