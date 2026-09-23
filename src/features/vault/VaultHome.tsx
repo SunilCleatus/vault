@@ -17,6 +17,7 @@ import FamilySwitcher, { type FamilyScope } from '../family/FamilySwitcher';
 import SearchView from '../search/SearchView';
 import FavoritesView from '../favorites/FavoritesView';
 import SettingsView from '../settings/SettingsView';
+import ImportView from '../import/ImportView';
 
 type Props = {
   accessToken: string;
@@ -26,7 +27,15 @@ type Props = {
 };
 
 type RecentUpload = { category: string; fileName: string };
-type View = 'browse' | 'folder' | 'viewer' | 'capture' | 'search' | 'favorites' | 'settings';
+type View =
+  | 'browse'
+  | 'folder'
+  | 'viewer'
+  | 'capture'
+  | 'search'
+  | 'favorites'
+  | 'settings'
+  | 'import';
 type SelectedCategory = { name: string; folderId: string; scopeLabel: string };
 type ViewerOrigin = 'folder' | 'search' | 'browse';
 
@@ -233,6 +242,20 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
     return <SettingsView onBack={() => setView('browse')} />;
   }
 
+  if (view === 'import') {
+    return (
+      <ImportView
+        accessToken={accessToken}
+        categoryFolders={categories}
+        onBack={() => setView('browse')}
+        onImported={(category) => {
+          void invalidateCachedListing(categories[category]);
+          refreshExpiringSoon();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="vault-home">
       <div className="home-toolbar">
@@ -241,6 +264,9 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
         </button>
         <button className="text-button" onClick={() => setView('favorites')}>
           ⭐ Offline Favorites
+        </button>
+        <button className="text-button" onClick={() => setView('import')}>
+          📥 Import from Drive
         </button>
         <button className="text-button" onClick={() => setView('settings')}>
           ⚙️ Settings

@@ -521,7 +521,9 @@ h1 {
 /* Home toolbar (search / favorites entry points) */
 .home-toolbar {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.5rem 1rem;
   width: 100%;
 }
 
