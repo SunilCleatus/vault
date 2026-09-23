@@ -41,6 +41,7 @@ export default function DocumentViewer({
   const [shareEmail, setShareEmail] = useState('');
   const [shareBusy, setShareBusy] = useState(false);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [sendMessage, setSendMessage] = useState<string | null>(null);
 
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(file.name);
@@ -136,6 +137,26 @@ export default function DocumentViewer({
       setShareMessage(err instanceof Error ? err.message : 'Could not share document.');
     } finally {
       setShareBusy(false);
+    }
+  };
+
+  // Hands the file to the phone's native share sheet (WhatsApp, Messages,
+  // Mail, AirDrop, etc.) — distinct from the Grant Access button above,
+  // which grants another Google account read access to the file in Drive.
+  const handleSendTo = async () => {
+    if (!blob) return;
+    setSendMessage(null);
+    const fileToSend = new File([blob], fileState.name, { type: fileState.mimeType });
+    if (!navigator.canShare?.({ files: [fileToSend] })) {
+      setSendMessage("Sending to other apps isn't supported on this browser — use Download instead.");
+      return;
+    }
+    try {
+      await navigator.share({ files: [fileToSend], title: fileState.name });
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setSendMessage(err.message);
+      }
     }
   };
 
@@ -284,6 +305,7 @@ export default function DocumentViewer({
       )}
 
       {shareMessage && <p className="status-line">{shareMessage}</p>}
+      {sendMessage && <p className="status-line">{sendMessage}</p>}
 
       {sharing && (
         <div className="share-form">
@@ -335,8 +357,15 @@ export default function DocumentViewer({
         >
           {favorited ? '★ Saved Offline' : '☆ Save for Offline'}
         </button>
+        <button
+          className="secondary-button"
+          onClick={handleSendTo}
+          disabled={!blob}
+        >
+          Send To…
+        </button>
         <button className="secondary-button" onClick={() => setSharing(true)} disabled={sharing}>
-          Share
+          Grant Access
         </button>
         {moveOptions.length > 0 && (
           <button className="secondary-button" onClick={() => setMoving(true)} disabled={moving}>
