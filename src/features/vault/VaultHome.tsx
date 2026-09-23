@@ -16,6 +16,7 @@ import DocumentViewer from '../browse/DocumentViewer';
 import FamilySwitcher, { type FamilyScope } from '../family/FamilySwitcher';
 import SearchView from '../search/SearchView';
 import FavoritesView from '../favorites/FavoritesView';
+import SettingsView from '../settings/SettingsView';
 
 type Props = {
   accessToken: string;
@@ -25,7 +26,7 @@ type Props = {
 };
 
 type RecentUpload = { category: string; fileName: string };
-type View = 'browse' | 'folder' | 'viewer' | 'capture' | 'search' | 'favorites';
+type View = 'browse' | 'folder' | 'viewer' | 'capture' | 'search' | 'favorites' | 'settings';
 type SelectedCategory = { name: string; folderId: string; scopeLabel: string };
 type ViewerOrigin = 'folder' | 'search' | 'browse';
 
@@ -228,6 +229,10 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
     return <FavoritesView onBack={() => setView('browse')} />;
   }
 
+  if (view === 'settings') {
+    return <SettingsView onBack={() => setView('browse')} />;
+  }
+
   return (
     <div className="vault-home">
       <div className="home-toolbar">
@@ -236,6 +241,9 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
         </button>
         <button className="text-button" onClick={() => setView('favorites')}>
           ⭐ Offline Favorites
+        </button>
+        <button className="text-button" onClick={() => setView('settings')}>
+          ⚙️ Settings
         </button>
         <button className="text-button" onClick={onSignOut}>
           Sign Out

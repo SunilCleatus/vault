@@ -3,6 +3,7 @@ import LockScreen from './LockScreen';
 import LockSetup from './LockSetup';
 import PinEntry from './PinEntry';
 import { isPinConfigured, verifyPin } from '../../lib/crypto';
+import { getAutoLockMinutes } from '../../lib/lockSettings';
 
 type PinKeyContextValue = {
   key: CryptoKey | null;
@@ -11,6 +12,9 @@ type PinKeyContextValue = {
   // cancelled). Used wherever offline favorites need to encrypt/decrypt but
   // the user unlocked this session via a WebAuthn gesture instead of a PIN.
   requestKey: () => Promise<CryptoKey | null>;
+  // Lets Settings push the freshly-derived key in immediately after a PIN
+  // change, so the rest of the current session doesn't need to re-unlock.
+  setKey: (key: CryptoKey) => void;
 };
 
 const PinKeyContext = createContext<PinKeyContextValue | null>(null);
@@ -21,7 +25,6 @@ export function usePinKey(): PinKeyContextValue {
   return ctx;
 }
 
-const AUTO_LOCK_MS = 5 * 60 * 1000;
 const IDLE_CHECK_INTERVAL_MS = 15_000;
 
 export default function LockGate({ children }: { children: ReactNode }) {
@@ -43,7 +46,8 @@ export default function LockGate({ children }: { children: ReactNode }) {
     window.addEventListener('keydown', markActivity);
 
     const interval = setInterval(() => {
-      if (Date.now() - lastActivityRef.current > AUTO_LOCK_MS) {
+      const autoLockMs = getAutoLockMinutes() * 60 * 1000;
+      if (Date.now() - lastActivityRef.current > autoLockMs) {
         setUnlocked(false);
         setPinKey(null);
       }
@@ -83,7 +87,7 @@ export default function LockGate({ children }: { children: ReactNode }) {
 
   if (unlocked) {
     return (
-      <PinKeyContext.Provider value={{ key: pinKey, requestKey }}>
+      <PinKeyContext.Provider value={{ key: pinKey, requestKey, setKey: setPinKey }}>
         {children}
         {promptOpen && (
           <div className="modal-overlay">

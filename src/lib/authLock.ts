@@ -37,6 +37,10 @@ export function isWebAuthnRegistered(): boolean {
   return !!localStorage.getItem(CREDENTIAL_ID_KEY);
 }
 
+export function disableWebAuthn(): void {
+  localStorage.removeItem(CREDENTIAL_ID_KEY);
+}
+
 export async function registerWebAuthn(): Promise<boolean> {
   try {
     const credential = (await navigator.credentials.create({

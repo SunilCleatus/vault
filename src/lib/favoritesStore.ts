@@ -68,3 +68,29 @@ export async function getFavoriteBlob(key: CryptoKey, fileId: string): Promise<B
   if (!record) return null;
   return decryptBlob(key, record.iv, record.ciphertext, record.mimeType);
 }
+
+// Changing the PIN generates a new salt, which would otherwise make every
+// existing offline favorite permanently undecryptable (their ciphertext was
+// encrypted with a key derived from the OLD pin+salt). Decrypts each with
+// the old key and re-encrypts with the new one so nothing is lost.
+export async function reencryptFavorites(oldKey: CryptoKey, newKey: CryptoKey): Promise<void> {
+  const db = await openDb();
+  const records = await new Promise<FavoriteRecord[]>((resolve, reject) => {
+    const tx = db.transaction(FAVORITES_STORE, 'readonly');
+    const req = tx.objectStore(FAVORITES_STORE).getAll();
+    req.onsuccess = () => resolve(req.result as FavoriteRecord[]);
+    req.onerror = () => reject(req.error);
+  });
+
+  for (const record of records) {
+    const blob = await decryptBlob(oldKey, record.iv, record.ciphertext, record.mimeType);
+    const { iv, ciphertext } = await encryptBlob(newKey, blob);
+    const updated: FavoriteRecord = { ...record, iv, ciphertext };
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(FAVORITES_STORE, 'readwrite');
+      tx.objectStore(FAVORITES_STORE).put(updated);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+}
