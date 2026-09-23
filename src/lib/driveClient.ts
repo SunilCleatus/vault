@@ -117,6 +117,23 @@ export async function listChildFolders(
   return data.files ?? [];
 }
 
+// The live set of category folders under a root — the default 8 created by
+// ensureVaultStructure/ensureFamilyMemberStructure plus any custom ones the
+// user has since added, so the grid, capture picker, and Move dropdown all
+// reflect reality rather than the fixed starter list.
+export async function listCategories(
+  accessToken: string,
+  rootId: string
+): Promise<Record<string, string>> {
+  const folders = await listChildFolders(accessToken, rootId);
+  const map: Record<string, string> = {};
+  for (const folder of folders) {
+    if (folder.name === 'Family') continue; // container, not a real category
+    map[folder.name] = folder.id;
+  }
+  return map;
+}
+
 export type DriveFile = {
   id: string;
   name: string;

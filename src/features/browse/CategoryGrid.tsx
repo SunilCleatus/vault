@@ -1,9 +1,10 @@
 type Props = {
   categories: Record<string, string>;
   onSelectCategory: (category: string, folderId: string) => void;
+  onAddCategory?: () => void;
 };
 
-export default function CategoryGrid({ categories, onSelectCategory }: Props) {
+export default function CategoryGrid({ categories, onSelectCategory, onAddCategory }: Props) {
   return (
     <div className="category-grid">
       {Object.entries(categories).map(([category, folderId]) => (
@@ -15,6 +16,11 @@ export default function CategoryGrid({ categories, onSelectCategory }: Props) {
           {category}
         </button>
       ))}
+      {onAddCategory && (
+        <button className="category-tile category-tile-add" onClick={onAddCategory}>
+          + Add Category
+        </button>
+      )}
     </div>
   );
 }

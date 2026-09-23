@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
   ensureFamilyMemberStructure,
+  ensureFolder,
+  listCategories,
   type DriveFile,
   type VaultStructure,
 } from '../../lib/driveClient';
 import { invalidateCachedListing } from '../../lib/listingCache';
-import { BROWSABLE_CATEGORIES } from '../../config/taxonomy';
 import { buildFolderIndex, type FolderLabel } from '../../lib/folderIndex';
 import { findExpiringSoon, formatDaysUntilExpiry, type ExpiringFile } from '../../lib/expiryCheck';
 import CaptureFlow from '../capture/CaptureFlow';
@@ -35,6 +36,14 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
   const [switcherRefresh, setSwitcherRefresh] = useState(0);
   const [folderRefresh, setFolderRefresh] = useState(0);
 
+  // The live set of category folders for whatever scope is currently being
+  // browsed — starts from the defaults created at setup, then refreshes from
+  // Drive to pick up any custom folders the user has added since.
+  const [categories, setCategories] = useState<Record<string, string>>(structure.categories);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+
   const [view, setView] = useState<View>('browse');
   const [viewerOrigin, setViewerOrigin] = useState<ViewerOrigin>('folder');
   const [selectedCategory, setSelectedCategory] = useState<SelectedCategory | null>(null);
@@ -45,11 +54,6 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
 
   const familyRootId = structure.categories['Family'];
   const currentScopeLabel = scope.kind === 'me' ? 'Me' : scope.name;
-  const browsableCategories = Object.fromEntries(
-    Object.entries(activeStructure.categories).filter(([name]) =>
-      (BROWSABLE_CATEGORIES as readonly string[]).includes(name)
-    )
-  );
 
   useEffect(() => {
     if (scope.kind === 'me') {
@@ -72,6 +76,17 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
       cancelled = true;
     };
   }, [scope, accessToken, familyRootId, structure]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCategories(activeStructure.categories);
+    listCategories(accessToken, activeStructure.rootId).then((live) => {
+      if (!cancelled) setCategories(live);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, activeStructure]);
 
   // Checked once per sign-in, across every category and family member (not
   // just the currently browsed scope) — the whole point is surfacing things
@@ -100,16 +115,30 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
     setView('viewer');
   };
 
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setSavingCategory(true);
+    try {
+      const id = await ensureFolder(accessToken, name, activeStructure.rootId);
+      setCategories((prev) => ({ ...prev, [name]: id }));
+      setNewCategoryName('');
+      setAddingCategory(false);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   if (view === 'capture') {
     return (
       <CaptureFlow
         accessToken={accessToken}
-        categoryFolders={activeStructure.categories}
+        categoryFolders={categories}
         onCancel={() => setView('browse')}
         onAuthExpired={onAuthExpired}
         onUploaded={({ category, fileName }) => {
           setRecentUploads((prev) => [{ category, fileName }, ...prev]);
-          void invalidateCachedListing(activeStructure.categories[category]);
+          void invalidateCachedListing(categories[category]);
           setView('browse');
         }}
       />
@@ -128,7 +157,7 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
         // browsed — a search result can belong to any family member's scope,
         // and we don't have that scope's folder map loaded, so Move is
         // simply unavailable there rather than risking a wrong target.
-        categoryFolders={viewerOrigin === 'folder' ? browsableCategories : {}}
+        categoryFolders={viewerOrigin === 'folder' ? categories : {}}
         onClose={() => {
           setSelectedFile(null);
           setView(viewerOrigin);
@@ -261,12 +290,35 @@ export default function VaultHome({ accessToken, structure, onAuthExpired, onSig
 
       {!resolvingScope && (
         <CategoryGrid
-          categories={browsableCategories}
+          categories={categories}
           onSelectCategory={(name, folderId) => {
             setSelectedCategory({ name, folderId, scopeLabel: currentScopeLabel });
             setView('folder');
           }}
+          onAddCategory={() => setAddingCategory(true)}
         />
+      )}
+
+      {addingCategory && (
+        <div className="add-member-form">
+          <input
+            type="text"
+            placeholder="Category name (e.g. Warranties)"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            autoFocus
+          />
+          <button className="text-button" onClick={handleAddCategory} disabled={savingCategory}>
+            {savingCategory ? 'Adding…' : 'Add'}
+          </button>
+          <button
+            className="text-button"
+            onClick={() => setAddingCategory(false)}
+            disabled={savingCategory}
+          >
+            Cancel
+          </button>
+        </div>
       )}
 
       {recentUploads.length > 0 && (

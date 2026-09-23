@@ -367,6 +367,12 @@ h1 {
   text-align: center;
 }
 
+.category-tile-add {
+  border-style: dashed;
+  color: var(--text-muted);
+  background: transparent;
+}
+
 /* Folder / file list */
 .folder-view {
   width: 100%;
