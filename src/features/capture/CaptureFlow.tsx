@@ -230,16 +230,14 @@ export default function CaptureFlow({
               onChange={(e) => setExpiryDate(e.target.value)}
               disabled={uploading}
             />
-            {expiryDate && (
-              <button
-                type="button"
-                className="text-button"
-                onClick={() => setExpiryDate('')}
-                disabled={uploading}
-              >
-                Clear
-              </button>
-            )}
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => setExpiryDate('')}
+              disabled={uploading || !expiryDate}
+            >
+              Clear
+            </button>
           </div>
         </div>
 

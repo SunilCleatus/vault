@@ -282,11 +282,14 @@ export default function DocumentViewer({
                 value={expiryInput}
                 onChange={(e) => setExpiryInput(e.target.value)}
               />
-              {expiryInput && (
-                <button type="button" className="text-button" onClick={() => setExpiryInput('')}>
-                  Clear
-                </button>
-              )}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setExpiryInput('')}
+                disabled={!expiryInput}
+              >
+                Clear
+              </button>
             </div>
           </div>
           <label>
